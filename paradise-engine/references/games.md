@@ -129,10 +129,28 @@ whoever hits the error nothing, which is exactly why the contract carries the CL
 Materialize also means a component nobody wrote an accessor for still surfaces, rather than being
 authored, exported, and never read.
 
-## Tuning: config.json as an authored document
+## Tuning: two patterns, and which game uses which
 
-Balance numbers do not belong in the scene. They live in a config document — the same
-`{Id, Data}` shape, in a file that stays hand-editable:
+Balance numbers can live in one of two places, and the games here deliberately differ. Check
+before assuming:
+
+| Game | Tuning lives in |
+|---|---|
+| ShiningPie, ParadiseTown, immortal-cultivation | a **config document** — `data/<game>/config.json` |
+| Pingu | **on the component that owns it**, authored in the scene — there is no config file |
+
+Pingu's `GameConfig` says why it moved: *"Every tunable moved onto the component that owns it — a
+penguin's body and swim numbers live on `pingu.penguin` … 'One place to tune' survives; it moved
+from data/pingu/config.json to scenes/penguin.tscn."* Both are legitimate; the component-owned
+form keeps the number next to the thing it describes, the document form keeps every number in one
+hand-editable file.
+
+If a task mentions a config file, confirm the game actually has one — a stale copy can survive
+under a gitignored staging directory (Pingu's `wwwroot/data/`) and be read by nothing.
+
+### The config-document form
+
+The same `{Id, Data}` shape, in a file that stays hand-editable:
 
 ```json
 {
@@ -148,7 +166,8 @@ through the same generated registry. The payoff is that an editor can show them 
 ranges and prose instead of someone hand-editing JSON blind.
 
 The split is location, not mechanism: **the scene says what the world IS, config says how it
-PLAYS.** Both reach an editor through the same schema dump.
+PLAYS.** Both reach an editor through the same schema dump — which is also why the component-owned
+form works: it is the same records, authored somewhere else.
 
 Ids here are GUIDs too. Parse rather than string-compare when reading, and refuse a non-GUID id
 where it is written — a hand-edited config is the one place that happens, and "not a GUID" is a

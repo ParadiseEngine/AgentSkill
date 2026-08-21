@@ -27,11 +27,27 @@ dotnet build <solution> -p:ParadiseUseEngineSource=false
 dotnet test  --project <tests>  -p:ParadiseUseEngineSource=false
 ```
 
-## Version bumps are all-or-nothing
+## Move every Paradise.* pin together
 
-The `Paradise.*` packages inter-reference at matching versions: `Paradise.Export 0.17.0` depends on
-`Paradise.Authoring >= 0.17.0`. There is no partial bump — NuGet drags the whole set forward, and a
-mixed pin fails with `NU1102`.
+Bump the whole set at once. The reason is not that NuGet forces you to — it is that NuGet mostly
+**will not**, and the half it misses fails silently.
+
+Only some of these packages depend on each other. `Paradise.Export 0.17.0` requires
+`Paradise.Authoring >= 0.17.0`, so pinning those two apart is caught at restore:
+
+```
+error NU1605: Detected package downgrade: Paradise.Authoring from 0.17.0 to 0.14.1
+```
+
+But `Paradise.Export` declares **no** dependency on `Paradise.ECS`. Pinning `Export 0.17.0`
+beside `ECS 0.14.1` restores clean, resolves ECS at **0.14.1**, and emits nothing at all — a
+genuinely mismatched set behind a green build. Both behaviours were verified by restore, not
+inferred from the docs.
+
+So the discipline is yours to keep, because only a subset of these mistakes announce themselves.
+
+`NU1102` is a *different* failure — "no such version is published" — which is the mistake of
+bumping ahead of a release, not of bumping unevenly.
 
 Practical consequence: a repo whose pins have drifted apart (say `Paradise.Export` at 0.14.0 but
 `Paradise.Ui` still at 0.6.2) moves **everything** when it moves at all, picking up unrelated
@@ -66,11 +82,17 @@ grepping for "error".
 After a push, the flatcontainer index, the search index, and blob storage converge at different
 rates. Any single endpoint can be wrong for ten minutes or more, and they disagree with each other.
 
-The only check that reflects what CI will do:
+The only check that reflects what CI will do is a restore that cannot reach your local cache:
 
 ```bash
-dotnet restore --no-cache      # in a scratch project pinning the new version
+dotnet restore -p:RestorePackagesPath=$(mktemp -d)    # scratch project pinning the new version
 ```
+
+**`--no-cache` is not enough**, and that is the trap: it bypasses the HTTP cache but still resolves
+out of `~/.nuget/packages`. A set already sitting in that folder restores in well under a second
+without touching the network, so a version you just "verified" may not be on nuget.org at all.
+Pointing `RestorePackagesPath` (or `NUGET_PACKAGES`) at an empty directory is what forces a real
+download.
 
 A package can be fetchable (`nupkg` returns 200) while its *dependency* is not yet indexed — the
 restore fails with `NU1102` naming the dependency, not the package you asked for. That is lag, not
