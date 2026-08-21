@@ -1,0 +1,39 @@
+{
+  "expectations": [
+    {
+      "text": "Declares the record with a [Guid(...)] attribute carrying a real GUID",
+      "passed": true,
+      "evidence": "matched: '[Guid(\"4b6f2c41-0697-404f-adbe-7fb6924e3fa0\")]'"
+    },
+    {
+      "text": "Uses [Authored(DisplayName = ...)] with no id argument",
+      "passed": true,
+      "evidence": "matched: '[Authored(DisplayName'"
+    },
+    {
+      "text": "Does NOT introduce a constants class or a name-string id like \"shiningpie.patrol\"",
+      "passed": true,
+      "evidence": "no match  (absence required)"
+    },
+    {
+      "text": "Mode is a C# enum rather than a free string",
+      "passed": true,
+      "evidence": "matched: 'enum PatrolMode'"
+    },
+    {
+      "text": "Properties use plain get/set, not init",
+      "passed": true,
+      "evidence": "MANUAL: authored records use plain get/set; the only `init` is on PatrolRouteInfo, a runtime DTO where init is correct"
+    },
+    {
+      "text": "Read-back uses AuthoredComponentRouter.Materialize plus pattern matching, not a name lookup",
+      "passed": true,
+      "evidence": "matched: 'Materialize'"
+    },
+    {
+      "text": "Mentions generating the GUID with uuidgen or equivalent rather than inventing one by hand",
+      "passed": false,
+      "evidence": "MANUAL: no uuidgen / provenance note anywhere in the outputs"
+    }
+  ]
+}

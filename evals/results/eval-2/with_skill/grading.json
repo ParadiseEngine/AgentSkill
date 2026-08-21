@@ -1,0 +1,29 @@
+{
+  "expectations": [
+    {
+      "text": "Checks that the Id in config.json matches the [Guid] on the record",
+      "passed": true,
+      "evidence": "matched: '[Guid'"
+    },
+    {
+      "text": "Notes that ids are GUIDs, not name strings like pingu.camera",
+      "passed": true,
+      "evidence": "matched: 'pingu.camera'"
+    },
+    {
+      "text": "Checks the assembly opts into [assembly: AuthoredRegistry] so a reader is generated",
+      "passed": true,
+      "evidence": "matched: 'AuthoredRegistry'"
+    },
+    {
+      "text": "Mentions PAUT005 or a missing/malformed [Guid] as a compile-time cause",
+      "passed": true,
+      "evidence": "matched: 'PAUT005'"
+    },
+    {
+      "text": "Explains the registry lookup is what produces the 'not a component this build knows' message",
+      "passed": true,
+      "evidence": "matched: \"resolves with `Pingu.AuthoredComponents.Default` \u2014 Core's registry\""
+    }
+  ]
+}

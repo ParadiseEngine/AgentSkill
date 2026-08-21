@@ -1,0 +1,29 @@
+{
+  "expectations": [
+    {
+      "text": "Identifies the workspace Directory.Build.targets source override as why local builds differ from CI",
+      "passed": true,
+      "evidence": "matched: 'Directory.Build.targets'"
+    },
+    {
+      "text": "States that CI restores Paradise.* from NuGet while local builds compile engine source",
+      "passed": true,
+      "evidence": "matched: 'nuget.org'"
+    },
+    {
+      "text": "Concludes an engine change must be published as a package before a dependent PR can go green",
+      "passed": true,
+      "evidence": "matched: 'SHIP first'"
+    },
+    {
+      "text": "Gives -p:ParadiseUseEngineSource=false as the concrete pre-push check",
+      "passed": true,
+      "evidence": "matched: 'ParadiseUseEngineSource=false'"
+    },
+    {
+      "text": "Does not misdiagnose it as a generic cache, SDK, or network problem",
+      "passed": true,
+      "evidence": "MANUAL: diagnoses the source override; attributes the trigger to nuget.org indexing lag, not a generic cache problem"
+    }
+  ]
+}

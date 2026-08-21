@@ -1,0 +1,1 @@
+{"total_tokens": 78625, "duration_ms": 287531, "total_duration_seconds": 287.5, "note": "RERUN with an imposed tool-call budget after the first attempt stalled; not cost-comparable to the baseline arm."}

@@ -1,0 +1,12 @@
+{
+  "eval_id": 2,
+  "eval_name": "unknown-tuning-component",
+  "prompt": "I added a camera tuning group to Pingu's config.json but loading it fails saying it's not a component this build knows. Help me debug it.",
+  "assertions": [
+    "Checks that the Id in config.json matches the [Guid] on the record",
+    "Notes that ids are GUIDs, not name strings like pingu.camera",
+    "Checks the assembly opts into [assembly: AuthoredRegistry] so a reader is generated",
+    "Mentions PAUT005 or a missing/malformed [Guid] as a compile-time cause",
+    "Explains the registry lookup is what produces the 'not a component this build knows' message"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "skill_name": "paradise-engine",
+  "evals": [
+    {
+      "id": 0,
+      "name": "add-authored-component",
+      "prompt": "In ShiningPie I want a patrol route concept: an entity that marks a path enemies walk, carrying a speed multiplier and a mode that's either Loop or PingPong. Write the component declaration and show me how SceneBinding would read it back into gameplay.",
+      "expected_output": "A record with a generated [Guid] and [Authored(DisplayName=...)], an enum for the mode, plain setters, no constants class; read back via Materialize + pattern match.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "green-locally-red-in-ci",
+      "prompt": "ShiningPie builds fine on my machine and all 204 tests pass, but CI can't even restore. What's going on, and how do I check before I push next time?",
+      "expected_output": "Explains local builds use the workspace source override while CI restores from NuGet, so an engine change must ship as a package first; recommends verifying with -p:ParadiseUseEngineSource=false.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "unknown-tuning-component",
+      "prompt": "I added a camera tuning group to Pingu's config.json but loading it fails saying it's not a component this build knows. Help me debug it.",
+      "expected_output": "Checks the [Guid] on the record matches the Id in config.json, that the assembly opts into AuthoredRegistry, and that ids are GUIDs parsed rather than name strings.",
+      "files": []
+    }
+  ]
+}

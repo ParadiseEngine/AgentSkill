@@ -1,0 +1,12 @@
+{
+  "eval_id": 1,
+  "eval_name": "green-locally-red-in-ci",
+  "prompt": "ShiningPie builds fine on my machine and all 204 tests pass, but CI can't even restore. What's going on, and how do I check before I push next time?",
+  "assertions": [
+    "Identifies the workspace Directory.Build.targets source override as why local builds differ from CI",
+    "States that CI restores Paradise.* from NuGet while local builds compile engine source",
+    "Concludes an engine change must be published as a package before a dependent PR can go green",
+    "Gives -p:ParadiseUseEngineSource=false as the concrete pre-push check",
+    "Does not misdiagnose it as a generic cache, SDK, or network problem"
+  ]
+}
