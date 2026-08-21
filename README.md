@@ -6,8 +6,12 @@ games that consume them.
 
 ## What it is for
 
-The architecture of this workspace is not the hard part. What costs time is a small set of failure
-modes whose symptom is a **passing build**:
+**Most work in this workspace is game work** — declaring what a scene means to your game,
+authoring it, reading it back at runtime — and the skill leads with that. Adding a role or a
+tunable should be one record in your own code, with no editor or engine change; `references/games.md`
+is the guide for doing that, and the entry point for most tasks.
+
+The rest of the skill is about a small set of failure modes whose symptom is a **passing build**:
 
 - building through a symlink, which silently links against packages instead of engine source
 - shadowing the workspace source override with a `Directory.Build.targets`, same symptom
@@ -36,9 +40,10 @@ triggered by its description, not invoked by name.
 
 ```
 paradise-engine/
-├── SKILL.md                    triggering, workspace map, the green-build traps, contract summary
+├── SKILL.md                    workspace map, the one idea, the green-build traps
 └── references/
-    ├── contract.md             the authored-component contract, schema versions, AOT constraints
+    ├── games.md                START HERE — components, tuning, data/, the authoring loop
+    ├── contract.md             the contract itself, schema versions, AOT constraints
     ├── blender.md              extension packaging, ID-property storage, test layers, LFS locking
     ├── godot.md                headless export, .tscn id keying, .gdignore, addon publishing
     └── cross-repo.md           version bumps, publishing, nuget propagation, per-repo CI coverage
@@ -56,6 +61,7 @@ Worth re-checking when things move:
 - the repo list in the source override's condition
 - which repos have CI, and what those jobs are called
 - the published version lines for `Paradise.*` and `Paradise.Godot.Editor`
+- which editor authors which game, and where each game's scene document lives
 
 Anything here stated as a fact was verified against the repos when written. If you change a
 mechanism the skill documents — especially one with a written rationale, like `.gdignore` or the

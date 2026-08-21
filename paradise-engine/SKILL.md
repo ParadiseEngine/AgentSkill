@@ -1,15 +1,15 @@
 ---
 name: paradise-engine
-description: Working in the Paradise Engine workspace — the ParadiseEngine core, the ParadiseGodotEditor and ParadiseBlenderEditor authoring hosts, and the games that consume them (ShiningPie, Pingu, ParadiseTown, immortal-cultivation, CultWithin). Use this whenever a task touches any of those repositories, the authored-component contract, the exported scene documents under data/, the Paradise.* NuGet packages, or a build that spans more than one of them. Also use it when something builds green but behaves wrong, when a change needs to reach another repo, or when you are about to publish, tag, or bump a Paradise version — this workspace has several failure modes whose symptom is a PASSING build, and they are documented here.
+description: Working in the Paradise Engine workspace — building the games (ShiningPie, Pingu, ParadiseTown, immortal-cultivation, CultWithin) and the engine and authoring hosts they run on. Use this whenever a task touches a Paradise game's scene, authored components, tuning config, or data/ export; the ParadiseEngine core; the ParadiseGodotEditor or ParadiseBlenderEditor authoring hosts; or a Paradise.* package version. Also use it when something builds green but behaves wrong, when a change needs to reach another repo, or before publishing, tagging, or bumping a Paradise version — this workspace has several failure modes whose symptom is a PASSING build, and they are documented here.
 ---
 
 # Paradise Engine workspace
 
-An engine, two authoring hosts, and several games that consume the engine as packages. The
-architecture is not the hard part. What costs time here is a small set of failure modes that
-**look like success** — a green build against the wrong assemblies, a test suite that passes
-because it reads a committed file instead of regenerating it, an editor that silently exports
-nothing. Most of this skill is about those.
+An engine, two authoring hosts, and the games built on them. **Most work here is game work**, and
+the design intends that: adding a role, a marker, or a tunable should be one record in your own
+code — no editor change, no engine change, no id written down anywhere new.
+
+Start at `references/games.md` unless you are specifically working *on* the engine or an editor.
 
 ## Layout
 
@@ -17,115 +17,93 @@ nothing. Most of this skill is about those.
 paradise-workspace/                    NOT a git repo — a directory of repos plus build wiring
 ├── Directory.Build.targets            uncommitted, outside every repo. The source override.
 ├── ParadiseEngine/                    the engine. Publishes Paradise.* packages.
-├── ParadiseGodotEditor/               Godot authoring host + the Paradise.Godot.Editor addon package
+├── ParadiseGodotEditor/               Godot authoring host + the Paradise.Godot.Editor addon
 ├── ParadiseBlenderEditor/             Blender addon (Python) + a .NET bridge CLI
-├── ShiningPie/  Pingu/  ParadiseTown/  immortal-cultivation/  CultWithin/     games
+├── ShiningPie/ Pingu/ ParadiseTown/ immortal-cultivation/ CultWithin/     the games
 └── *-workspace/                       symlink VIEWS aggregating a game with its toolchain
 ```
 
 Each repo has its own remote, history and conventions — read the local `CLAUDE.md` / `AGENTS.md`
 when working inside one. **Never create a commit spanning repos.**
 
-## The two things that produce a green build and a wrong result
+## Where to look
 
-### 1. Building through a symlink
+| Working on | Read |
+|---|---|
+| **A game** — scenes, components, tuning, data/ | **`references/games.md`** ← start here |
+| The contract itself, or an engine component | `references/contract.md` |
+| The Blender addon | `references/blender.md` |
+| The Godot editor | `references/godot.md` |
+| Publishing, versions, anything crossing repos | `references/cross-repo.md` |
 
-The `*-workspace/` directories contain symlinks. Reach a project by a **real path**
-(`../ShiningPie/…`) or `cd` in first. A path that crosses a symlink fails two ways at once: a wall
-of `CS0012` (the SDK canonicalizes source paths but keeps the project path as spelled), and —
-worse — the source override stops applying, because it is keyed on the project directory. You get
-a passing build against the *packages* while believing you built against source.
-
-### 2. Shadowing the source override
-
-`paradise-workspace/Directory.Build.targets` swaps `Paradise.*` PackageReferences for
-ProjectReferences into `ParadiseEngine/src/`, for these repos: immortal-cultivation,
-ParadiseGodotEditor, ParadiseTown, ShiningPie, ParadiseBlenderEditor, CultWithin, Pingu.
-
-MSBuild walks up from the project's **physical** directory and stops at the **first**
-`Directory.Build.targets` it finds. Adding one inside a repo shadows the override, and the symptom
-is not an error — it is a green build against published packages when you meant source.
-
-If a repo needs its own build wiring, use **`Directory.Build.props`**: nothing declares one above
-these repos, so it shadows nothing. (`ParadiseGodotEditor/Directory.Build.props` does exactly this
-to keep Godot out of `obj/`.)
-
-Always verify rather than assume:
-
-```bash
-dotnet build <proj> -getProperty:ParadiseUseEngineSource     # expect: true
-```
-
-Turn it off deliberately with `-p:ParadiseUseEngineSource=false` — which is what **CI does**, so
-it is the only honest pre-push check. See `references/cross-repo.md`.
-
-## The authored-component contract
-
-One concept underpins every repo. Get it right and most tasks are mechanical.
+## The one idea underneath everything
 
 **A component is a plain record with a `[Guid]`.** The GUID is its identity; `[Authored]` carries
 only a `DisplayName`. A missing or malformed `[Guid]` is compile error **PAUT005**.
 
 ```csharp
-[Guid("b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11")]
-[Authored(DisplayName = "Rigidbody")]
-public sealed record RigidbodyComponentData { … }
+[Guid("e58e43ea-fa67-4f64-a6df-9f40beafcbfe")]
+[Authored(DisplayName = "Player (Red)")]
+public sealed record PlayerMarker;
 ```
 
-**An entity carries one flat list**, engine components and game components alike — no privileged
-tier, no named slots:
+**An entity carries one flat list** — your game's components and the engine's alike, no privileged
+tier:
 
 ```json
 "Components": [
-  { "Id": "f2c0357e-…", "Type": "Paradise.Export.Data.RenderableComponentData", "Data": { … } }
+  { "Id": "f2c0357e-…", "Type": "Paradise.Export.Data.RenderableComponentData", "Data": { … } },
+  { "Id": "e58e43ea-…", "Type": "ShiningPie.Authoring.PlayerMarker",            "Data": {} }
 ]
 ```
 
-Read one with `entity.Get<T>()`, keyed on `typeof(T).GUID` — the same attribute the record already
-carries, so **no call site should ever name an id**. Write with `Set<T>` / `Entry<T>`. Get
-everything at once with `AuthoredComponentRouter.Materialize`.
+Games read them with `AuthoredComponentRouter.Materialize` and pattern-match. Engine-side
+one-offs use `entity.Get<T>()`, keyed on `typeof(T).GUID` — the same attribute the record already
+carries, so **no call site should ever name an id**.
 
-Two current versions, both at 3, both with `MinimumSupportedVersion == CurrentVersion`: the
-**level document** (`LevelData`) and the **authoring schema**. That equality is deliberate — v2
-keyed components by name and there is no way back to a GUID, so an old document is **refused on
-read**, not upgraded. Regenerate it by re-exporting from its editor.
+Both the level document and the authoring schema are at version **3**, and both set
+`MinimumSupportedVersion == CurrentVersion` deliberately: v2 keyed components by name, and there is
+no way back to a GUID, so an old document is **refused on read** rather than upgraded. Re-export it.
 
-Full details, including the sharp edges: `references/contract.md`.
+## Failure modes whose symptom is a passing build
 
-## Per-repo guides
+This workspace punishes assumed success. These are the ones that cost real time.
 
-Read the one you need — each has the commands and the traps for that host:
+**Building through a symlink.** The `*-workspace/` views contain symlinks. Reach a project by a
+real path (`../ShiningPie/…`) or `cd` in first. Crossing one gives a wall of `CS0012` *and* —
+worse — silently stops the source override applying, so you get a green build against the
+*packages* while believing you built against source.
 
-| Working on | Read |
-|---|---|
-| Engine, contract, packages | `references/contract.md` |
-| Blender addon | `references/blender.md` |
-| Godot editor | `references/godot.md` |
-| Anything crossing repos, publishing, versions | `references/cross-repo.md` |
+**Shadowing the source override.** `paradise-workspace/Directory.Build.targets` swaps `Paradise.*`
+PackageReferences for ProjectReferences into engine source. MSBuild stops at the **first**
+`Directory.Build.targets` it finds walking up, so adding one inside a repo shadows it — again with
+a green build against packages rather than an error. If a repo needs build wiring, use
+`Directory.Build.props`: nothing declares one above these repos. Verify rather than assume:
 
-## Verification discipline
+```bash
+dotnet build <proj> -getProperty:ParadiseUseEngineSource      # expect: true
+dotnet build <proj> -p:ParadiseUseEngineSource=false          # what CI does
+```
 
-This workspace punishes assumed success. A few habits that repeatedly pay:
+**Tests that read a committed file.** Suites here bind against the *shipped* export. That proves
+the file parses; it proves nothing about the tool that wrote it. After changing anything about
+authoring, **re-export and diff against the previous version** — that is how a bug where an editor
+silently exported entities with no components at all was caught, after a green build and 136
+passing tests.
 
-**Re-derive, don't re-read.** Test suites here often read a *committed* file. That proves the file
-parses; it proves nothing about the tool that wrote it. When you change an editor, regenerate its
-output and **diff against the previous version** — that is how a bug where an editor silently
-exported entities with no components at all was caught, after the build and 136 tests passed.
+**A compiled dependency hiding a breaking change.** A package built against an older contract links
+and compiles fine, then fails when the type is actually touched — inside the editor, at runtime,
+with nothing red anywhere. Bump everything that was built against a contract you changed.
 
-**A compiled dependency hides a breaking change until runtime.** A package built against an older
-contract links and compiles fine; it fails when the type is actually touched, inside the editor,
-with nothing red anywhere. When bumping one Paradise version, bump everything that was built
-against it.
+**Scripts that skip rather than fail.** Several here skip a layer whose tool is missing and still
+report green, so a wrong path quietly narrows the test run. Print tool versions before invoking
+them, so a bad path dies at the check.
 
-**Prefer the check that fails loudly.** Several scripts here *skip* a step whose tool is missing
-rather than failing — a wrong path silently downgrades the run and still reports green. Print tool
-versions before running such a script, so a bad path dies at the check instead of quietly
-narrowing the test.
+**Convenience readers that lie.** `strings` on a `.blend` finds nothing because the file is
+compressed — that reads as proof of absence. nuget.org's index endpoints disagree with each other
+and with reality. Open the file with a real reader; verify a package with an actual restore.
 
-**Distrust convenience readers on compressed or generated files.** `strings` on a `.blend` finds
-nothing because the file is compressed; nuget.org's index endpoints disagree with each other and
-with reality. Open the file with a real reader; verify a package with an actual restore.
+## When a mechanism has a written reason, read it first
 
-**When a mechanism has a documented reason, find it before changing it.** `.gdignore`, the
-`.props`-not-`.targets` rule, and the LFS lock on `.blend` all have their rationale written next
-to them. Each exists because someone lost time to its absence.
+`.gdignore`, the `.props`-not-`.targets` rule, and the LFS lock on `.blend` all carry their
+rationale next to them. Each exists because someone lost time to its absence.
