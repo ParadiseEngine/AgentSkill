@@ -31,6 +31,7 @@ when working inside one. **Never create a commit spanning repos.**
 | Working on | Read |
 |---|---|
 | **A game** — scenes, components, tuning, data/ | **`references/games.md`** ← start here |
+| A game's RUNTIME — sim boundary, threads, snapshots, input | `references/runtime.md` |
 | The contract itself, or an engine component | `references/contract.md` |
 | The Blender addon | `references/blender.md` |
 | The Godot editor | `references/godot.md` |

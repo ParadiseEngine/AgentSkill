@@ -15,6 +15,9 @@ and you can do nearly all of it without touching either.
 - [Developing against engine source](#developing-against-engine-source)
 - [When you need an engine change](#when-you-need-an-engine-change)
 
+Structuring what *runs* the scene — the sim boundary, worlds, threads, snapshots, input layering —
+is `runtime.md`.
+
 ## The loop
 
 1. **Declare** a component — a record with a `[Guid]`, in your game's assembly.
