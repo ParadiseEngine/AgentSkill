@@ -59,7 +59,7 @@ bumped separately (see `godot.md`).
 
 ## Publishing the engine
 
-Tag-triggered. One version across all 22 packages:
+Tag-triggered. One version across every published package (24 as of 0.19.0):
 
 ```bash
 git tag -a v0.17.0 -m "…" && git push origin v0.17.0
@@ -76,6 +76,22 @@ errors without it).
 The publish log echoes several `::error::` lines that are just script text from guard branches that
 never fired. Judge by the job conclusion and the `Your package was pushed.` confirmations, not by
 grepping for "error".
+
+**A new package is not published until it is added to the workflow's list.** `publish-nuget.yml`
+packs from a hardcoded `projects=(…)` array, and its count check compares packed-vs-**listed** —
+so an unlisted project passes every gate silently: green build, green tests, green publish job,
+and a package that does not exist. Adding a package to the engine is therefore two edits, and the
+second one has no compiler behind it. Before tagging, diff the list against the packable projects,
+and pack the full list locally at the version you are about to publish:
+
+```bash
+sed -n '/projects=(/,/)/p' .github/workflows/publish-nuget.yml | grep -oE 'Paradise[.A-Za-z]+' > /tmp/listed
+while read -r p; do dotnet pack "src/$p/$p.csproj" -c Release -o /tmp/nupkg -p:Version=X.Y.Z || echo "FAILED $p"; done < /tmp/listed
+```
+
+(Write the list to a file and `while read` it: **zsh does not word-split** an unquoted multi-line
+variable the way bash does, so `for p in $list` iterates once with the whole thing as one word and
+the loop silently does nothing useful.)
 
 ## nuget.org tells you three different things
 

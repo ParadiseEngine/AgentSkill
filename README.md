@@ -55,6 +55,7 @@ paradise-engine/
 ├── SKILL.md                    workspace map, the one idea, the green-build traps
 └── references/
     ├── games.md                START HERE — components, tuning, data/, the authoring loop
+    ├── runtime.md              sim boundary, world ownership, snapshots, input layering, threads
     ├── contract.md             the contract itself, schema versions, AOT constraints
     ├── blender.md              extension packaging, ID-property storage, test layers, LFS locking
     ├── godot.md                headless export, .tscn id keying, .gdignore, addon publishing
