@@ -35,11 +35,11 @@ The skill front-loads those, then hands off to per-repo references for the mecha
 
 ## Install
 
-Copy `paradise-engine/` into a skills directory Claude Code reads:
+Copy the skill directories you want into a skills directory Claude Code reads:
 
 ```bash
 # user-wide
-cp -r paradise-engine ~/.claude/skills/
+cp -r paradise-engine paradise-verify paradise-release ~/.claude/skills/
 
 # or per-project
 cp -r paradise-engine <your-project>/.claude/skills/
@@ -64,6 +64,23 @@ paradise-engine/
 
 `SKILL.md` is loaded whenever the skill triggers; the references are read on demand, so the detail
 costs nothing until it is needed.
+
+Two smaller PROCEDURAL skills sit beside it, each a checklist distilled from a session where every
+step on it went wrong once:
+
+```
+paradise-verify/SKILL.md            prove a game change end to end: the source override is really on
+                                    (every Paradise.* package listed in the swap file), build + test
+                                    from source, rebuild assets CLEAN (the build index caches by
+                                    inputs, not importer code), refresh the copied test fixtures,
+                                    headless run and what to read in its log, then the package-mode
+                                    build — and the stale-binary trap of `--no-build` after a failed
+                                    restore
+paradise-release/SKILL.md           merge by explicit PR number, tag matching Directory.Build.props,
+                                    wait for publish-nuget, poll the flat-container index per package,
+                                    bump ParadiseVersion + the README CLI line in the consumer, verify
+                                    in package mode, update the PR body
+```
 
 ## Does it actually help?
 
