@@ -7,7 +7,7 @@ something subtly broken.
 ## Contents
 
 - [Local builds lie about CI](#local-builds-lie-about-ci)
-- [Version bumps are all-or-nothing](#version-bumps-are-all-or-nothing)
+- [Move every Paradise.* pin together](#move-every-paradise-pin-together)
 - [Publishing the engine](#publishing-the-engine)
 - [nuget.org tells you three different things](#nugetorg-tells-you-three-different-things)
 - [Landing a contract change](#landing-a-contract-change)
@@ -15,10 +15,11 @@ something subtly broken.
 
 ## Local builds lie about CI
 
-Locally the workspace source override compiles the engine **from source**. CI restores `Paradise.*`
-**from NuGet**. So a change can build and test green on your machine while CI cannot even restore —
-and an engine API you add must *ship as a package* before a dependent PR can go green. That is not
-a misconfiguration; it is the design.
+Local source-engine validation and package delivery prove different things. Repositories that
+opt into the parent workspace override can compile the engine from source. ShiningPie instead
+uses packages in normal builds; `shiningpie-workspace/ShiningPie.Local` is its explicit local
+source path. CI restores `Paradise.*` from NuGet, so a successful source run cannot prove that a
+new API is available to the consumer's package build.
 
 Before pushing anything that touches a Paradise version, check the way CI will:
 
@@ -59,19 +60,17 @@ bumped separately (see `godot.md`).
 
 ## Publishing the engine
 
-Tag-triggered. One version across every published package (24 as of 0.19.0):
+Tag-triggered. The workflow derives one package version from the release tag. Do not bump the
+default `<Version>` or open a version-bump PR just to release:
 
 ```bash
 git tag -a v0.17.0 -m "…" && git push origin v0.17.0
 ```
 
-Under 0.x, a **minor** bump signals a breaking change — that is what this repo's history does
-(0.14.0 → 0.15.0 → 0.16.0 → 0.17.0). The workflow also accepts `workflow_dispatch` with an explicit
-version.
+Choose the requested version with the repository's current release policy.
 
 Publishing goes to **public nuget.org**, where a version can be unlisted but never deleted or
-reused. Before tagging: confirm the tag is free, and that `NUGET_USER` is set (the workflow hard-
-errors without it).
+reused. Before tagging: confirm the tag is free, and the publishing identity is configured (`NUGET_USER` or the workflow's repository-owner fallback).
 
 The publish log echoes several `::error::` lines that are just script text from guard branches that
 never fired. Judge by the job conclusion and the `Your package was pushed.` confirmations, not by
@@ -81,17 +80,8 @@ grepping for "error".
 packs from a hardcoded `projects=(…)` array, and its count check compares packed-vs-**listed** —
 so an unlisted project passes every gate silently: green build, green tests, green publish job,
 and a package that does not exist. Adding a package to the engine is therefore two edits, and the
-second one has no compiler behind it. Before tagging, diff the list against the packable projects,
-and pack the full list locally at the version you are about to publish:
-
-```bash
-sed -n '/projects=(/,/)/p' .github/workflows/publish-nuget.yml | grep -oE 'Paradise[.A-Za-z]+' > /tmp/listed
-while read -r p; do dotnet pack "src/$p/$p.csproj" -c Release -o /tmp/nupkg -p:Version=X.Y.Z || echo "FAILED $p"; done < /tmp/listed
-```
-
-(Write the list to a file and `while read` it: **zsh does not word-split** an unquoted multi-line
-variable the way bash does, so `for p in $list` iterates once with the whole thing as one word and
-the loop silently does nothing useful.)
+second one has no compiler behind it. When adding packages, compare the list against the new packable projects and verify the
+resulting packages. Use the current workflow for the exact packing arguments.
 
 ## nuget.org tells you three different things
 
@@ -118,34 +108,30 @@ Do not bump consumers to a version that does not yet restore; you will just push
 
 ## Landing a contract change
 
-The dependency order is strict, because each step produces what the next consumes:
+For affected consumers included in the requested delivery, follow their dependency order:
 
 1. **Engine** — change the contract, merge, tag, publish. Wait for restore to succeed.
 2. **Godot editor** — migrate, bump its engine pins, merge, then bump the **addon** version and tag
    `addon-v*`. Republish, because an addon built against the old contract fails at runtime.
-3. **Blender addon** — migrate, bump the bridge pin, regenerate the vendored engine schema.
-4. **Games** — bump engine pins; for Pingu also the addon pin. Re-export scenes from whichever
-   editor owns them.
+3. **Blender addon** — migrate the pure-Python `paradise_assets` document readers/writers where
+   the contract changed. There is no .NET bridge or vendored engine schema. Rebuild the game's
+   launcher to refresh its merged `.editor/authoring-schema.json`; engine components come from
+   that game's actual dependencies. The CLI owns asset compilation and sidecar identities.
+4. **Games** — bump engine pins and any affected Godot addon pin. Refresh authoring schemas and
+   affected documents through the owning editor, then rebuild runtime assets through the CLI.
 
-Scenes are **re-exported, not converted**, wherever an editor can be driven. A conversion script is
-a fallback for documents whose editor cannot be run — and its output is not identical to the
-editor's (a round-trip through Python changes float formatting; the editor omits nulls the script
-preserves). If you use one, re-export later and take the editor's bytes as authoritative.
+Validate through the owning authoring path. For the current Blender addon, `assets/*.prefab` is
+canonical and `.editor/blend/*.blend` is a disposable view. Preserve untouched document values;
+the Python canonical writer must match the engine writer byte-for-byte. For document-format
+changes, refresh parity fixtures from the engine's generated fixtures and run
+`paradise assets prefab-check` on a real project. Rebuild runtime assets through the CLI. Consult
+the current Godot guide for games using its exporter instead.
 
 ## What CI actually covers
 
-Uneven, and worth knowing before trusting a green PR:
-
-| Repo | CI |
-|---|---|
-| ParadiseEngine | checks `test`, `aot-publish-run` |
-| ParadiseGodotEditor | `test`, `addon-nuget`, `export-smoke` (a real headless export) |
-| ParadiseBlenderEditor | `unit` (ruff + pytest), `full` (Blender + conformance) |
-| Pingu | `build-test` (plus a `deploy` workflow) |
-| ShiningPie | **none** — no pipelines exist in the Azure DevOps project |
-
-A PR in a repo with no CI shows "clean" because nothing ran. Run the suite locally and say so in
-the PR.
+Inspect the current workflow definitions, branch policies, and checks on the exact PR head.
+Historical check names and pipeline availability change; an empty check list does not prove a
+successful run. Report local evidence separately from remote CI evidence.
 
 ShiningPie is on **Azure DevOps**, not GitHub — use `az repos pr`. Its PRs need a merge strategy
 selected or the blocking `Require a merge strategy` policy sits `rejected` and completion is

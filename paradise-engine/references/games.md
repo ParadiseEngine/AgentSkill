@@ -196,20 +196,22 @@ about authoring, re-export and diff.
 
 ## Developing against engine source
 
-The `*-workspace/` directories aggregate a game with the engine and its editor so you can build the
-whole stack from source:
+The `*-workspace/` views aggregate physical repositories, but each game chooses whether normal
+builds allow the parent engine-source override. ShiningPie deliberately consumes packages and
+disables automatic substitution. Its explicit source-engine host is the workspace-only
+`ShiningPie.Local`, which reuses sibling source and isolates game outputs. From
+`shiningpie-workspace`:
 
 ```bash
-cd shiningpie-workspace && dotnet build ShiningPie.Workspace.slnx
+dotnet run --project ShiningPie.Local -- --scene build/levels/neon_city_scene.toml --profile
 ```
 
-Two rules make this safe, and both fail *silently* when broken — see `SKILL.md`:
+Building the workspace solution alone does not prove a source-engine game run. Use physical
+project paths or `cd -P` for repository builds; symlink traversal can alter MSBuild resolution.
+Preserve each repository's intentional `Directory.Build.targets` boundary and verify resolved
+references when its mode is unclear. See `build-boundaries.md` for the distinction.
 
-- Reach projects by a **real path** (`../ShiningPie/…`) or `cd` in first, never through a symlink.
-- Never add a `Directory.Build.targets` to a game repo; it shadows the source override.
-
-Remember CI restores from NuGet while you are building from source. Before pushing anything that
-touches a version, verify the way CI will:
+Before delivering a version change, verify the package mode that CI uses:
 
 ```bash
 dotnet build -p:ParadiseUseEngineSource=false

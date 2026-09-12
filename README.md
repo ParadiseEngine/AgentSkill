@@ -26,12 +26,13 @@ is the guide for doing that, and the entry point for most tasks.
 The rest of the skill is about a small set of failure modes whose symptom is a **passing build**:
 
 - building through a symlink, which silently links against packages instead of engine source
-- shadowing the workspace source override with a `Directory.Build.targets`, same symptom
+- unintentionally changing source/package mode through targets imports; ShiningPie's package-only
+  targets are deliberate, and its explicit source host is `ShiningPie.Local`
 - a test suite that passes because it reads a committed file rather than regenerating it
 - a package built against an older contract, which links fine and fails at runtime
 - a script that *skips* a layer whose tool is missing and still reports green
 
-The skill front-loads those, then hands off to per-repo references for the mechanics.
+The skill routes to the relevant reference when one of those boundaries affects the task.
 
 ## Install
 
@@ -45,41 +46,35 @@ cp -r paradise-engine paradise-verify paradise-release ~/.claude/skills/
 cp -r paradise-engine <your-project>/.claude/skills/
 ```
 
-Then start a session in the workspace and ask for something that touches it — the skill is
-triggered by its description, not invoked by name.
+The descriptions select skills for their integration, verification, or release workflow. They
+can also be invoked by name; unrelated edits do not require loading the whole set.
 
 ## Layout
 
 ```
 paradise-engine/
-├── SKILL.md                    workspace map, the one idea, the green-build traps
+├── SKILL.md                    integration boundaries and conditional reference routing
 └── references/
-    ├── games.md                START HERE — components, tuning, data/, the authoring loop
+    ├── games.md                components, tuning, data/, the authoring loop
     ├── runtime.md              sim boundary, world ownership, snapshots, input layering, threads
     ├── contract.md             the contract itself, schema versions, AOT constraints
     ├── blender.md              extension packaging, ID-property storage, test layers, LFS locking
     ├── godot.md                headless export, .tscn id keying, .gdignore, addon publishing
-    └── cross-repo.md           version bumps, publishing, nuget propagation, per-repo CI coverage
+    ├── cross-repo.md           package pins, publishing, NuGet propagation, current CI checks
+    └── build-boundaries.md     source/package identity and false-positive validation
 ```
 
 `SKILL.md` is loaded whenever the skill triggers; the references are read on demand, so the detail
 costs nothing until it is needed.
 
-Two smaller PROCEDURAL skills sit beside it, each a checklist distilled from a session where every
-step on it went wrong once:
+Two smaller skills cover focused delivery workflows:
 
 ```
-paradise-verify/SKILL.md            prove a game change end to end: the source override is really on
-                                    (every Paradise.* package listed in the swap file), build + test
-                                    from source, rebuild assets CLEAN (the build index caches by
-                                    inputs, not importer code), refresh the copied test fixtures,
-                                    headless run and what to read in its log, then the package-mode
-                                    build — and the stale-binary trap of `--no-build` after a failed
-                                    restore
-paradise-release/SKILL.md           merge by explicit PR number, tag matching Directory.Build.props,
-                                    wait for publish-nuget, poll the flat-container index per package,
-                                    bump ParadiseVersion + the README CLI line in the consumer, verify
-                                    in package mode, update the PR body
+paradise-verify/SKILL.md            select source, asset, runtime, and package checks for the change;
+                                    preserve exit codes and avoid stale output or cached restores
+paradise-release/SKILL.md           release the requested revision with a version tag, verify the
+                                    exact publish run and fresh restore, update requested consumers;
+                                    the tag derives the version without changing the default Version
 ```
 
 ## Does it actually help?

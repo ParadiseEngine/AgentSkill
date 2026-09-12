@@ -1,72 +1,56 @@
 ---
 name: paradise-verify
-description: Verify a Paradise game (ShiningPie and siblings) end to end after engine or asset changes — build against engine source, rebuild assets clean, refresh test fixtures, run tests, run headless, then prove the package-mode build. Use before claiming a cross-repo change works.
+description: Validate a Paradise game's engine or asset integration, including source/package boundaries and runtime evidence for affected behavior.
 ---
 
-# Verify a Paradise game against engine source and packages
+# Verify Paradise integration
 
-Run from the game's workspace view (e.g. `paradise-workspace/shiningpie-workspace/`). Reach
-projects by REAL paths (`../ShiningPie/…`) or `cd` into the repo; never through a workspace symlink.
+Choose checks for the behavior changed and the completion the user requested. A package migration
+needs package-mode evidence; an asset importer needs rebuilt output; a visual change needs an
+observed render. Routine documentation edits do not require the whole integration sequence.
 
-## 1. Is the source override actually on?
+Use physical repository paths for Git and project builds. Workspace `.slnx` files can coordinate
+repos, but passing a project path through a workspace symlink can break source overrides.
 
-```bash
-cd ../ShiningPie && dotnet build ShiningPie.Game/ShiningPie.Game.csproj -getProperty:ParadiseUseEngineSource   # → true
-shasum -a 256 ShiningPie.Launcher/bin/Debug/net10.0/Paradise.<Pkg>.dll ../ParadiseEngine/src/Paradise.<Pkg>/bin/Debug/net10.0/Paradise.<Pkg>.dll
-```
+## Engine source changes
 
-Every `Paradise.*` package the game references must appear TWICE in
-`paradise-workspace/Directory.Build.targets`: a `ProjectReference` line and the
-`PackageReference Remove` list. A missing one silently stays on NuGet even with the override on.
-Also list it in the workspace `.slnx`.
+Normal ShiningPie builds deliberately use packages. For source-engine integration, run the
+workspace-only `ShiningPie.Local` project from `shiningpie-workspace`; building the workspace
+solution alone does not switch the game to source. Preserve ShiningPie's repository targets and
+do not add engine ProjectReferences there.
 
-## 2. Build and test against source
+Check `ParadiseUseEngineSource` and the actual engine revision before trusting a source-mode
+result in repositories that opt into the parent override. Every overridden `Paradise.*` package
+needs both its `ProjectReference` and removal from
+`PackageReference` in the workspace `Directory.Build.targets`; a missing entry silently uses
+NuGet. Compare resolved DLLs when the dependency origin is uncertain.
 
-```bash
-dotnet build ShiningPie.Workspace.slnx 2>&1 | grep -E " error |Build succeeded" | sort -u
-dotnet test --project ../ShiningPie/ShiningPie.Tests/ShiningPie.Tests.csproj --no-build 2>&1 | grep -E "^\s+(failed|succeeded|total)"
-```
+Build the affected projects and run their test suites with the repository's current commands.
+Capture real exit codes and test totals: filtering logs can hide failures or a crashed test host.
+Rebuild the executable before a smoke run; building tests alone may leave its output stale.
 
-Read `total`: a crashed test host (Noesis view created in a test) reports a small total with a
-non-zero exit and looks green.
+## Authoring or asset-pipeline changes
 
-## 3. Rebuild assets CLEAN when the pipeline changed
+The asset index caches inputs, not importer code. After changing importer output, use the CLI's
+supported clean/rebuild flow. If the cache must be replaced manually, verify the CLI is usable
+and preserve the old output until the replacement succeeds.
 
-The build index caches by inputs, not by importer code. After changing what an importer writes:
+Re-export through the owning editor for authoring changes and inspect the diff. Tests reading
+committed exports do not exercise the exporter. Refresh only affected copied fixtures; confirm
+count changes against the source prefab before updating assertions.
 
-```bash
-rm -rf ../ShiningPie/build   # only after the CLI is known to build
-cd ../ParadiseEngine && dotnet run --project src/Paradise.Cli --no-build -- assets build --project /abs/path/ShiningPie
-```
+## Runtime changes
 
-Then refresh the fixtures the tests read (they are copies, not built by the tests):
+Use the game's current launcher and a bounded scenario exercising the changed path. Inspect
+screenshots for visual behavior; compare frames for animation. Threading, input, and audio may
+need a windowed run. Report what was observed, not merely that the process exited successfully.
 
-```bash
-cp build/levels/{shiningpie,test,triggers}.toml ShiningPie.Tests/Fixtures/levels/
-cp build/Models/Prim_{Cube,Sphere}.{toml,mesh} build/Models/Prim_*.Prim_*.material ShiningPie.Tests/Fixtures/Models/
-```
+## Published-package delivery
 
-Object-count pins in `AuthoredSceneTests`/`SceneWorldTests` move with the fixture; check the prefab
-is the source of a count change before editing a pin.
+Use `-p:ParadiseUseEngineSource=false` for restore, build, and affected tests. For a new release,
+restore into an empty `NUGET_PACKAGES` directory to prove remote availability. Do not run stale
+`--no-build` binaries after a failed restore or build. An unpublished engine API is a release
+blocker for the consumer; finish the requested release workflow before claiming CI compatibility.
 
-## 4. Run it
-
-```bash
-dotnet run --project ShiningPie.Launcher --no-build -- --headless --frames 120 --hold W --screenshot /tmp/walk.png
-```
-
-Expect `Authored scene: … · N variants · M meshes loaded`, `Drawing N instances`, and one
-`Skinning variant …` line per skinned variant; then LOOK at the screenshot. Two captures differing
-only in `--frames` prove animation. Threading and audio bugs need a windowed run.
-
-## 5. Prove the package build (what CI sees)
-
-```bash
-dotnet restore ShiningPie.slnx -p:ParadiseUseEngineSource=false     # NU1102 = version not indexed yet
-dotnet build   ShiningPie.slnx -p:ParadiseUseEngineSource=false
-dotnet test --project ShiningPie.Tests/ShiningPie.Tests.csproj --no-build -p:ParadiseUseEngineSource=false
-```
-
-A `--no-build` test after a failed restore runs STALE binaries; check the restore succeeded first.
-An engine API used locally must be in a published package (see `paradise-release`) before the
-game's PR can go green.
+Finish when the affected checks and requested runtime/package evidence are satisfied. Broaden
+verification when failures or cross-component changes justify it, and identify remaining blockers.
